@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🌍 Charity Donation Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+body {
+  font-family: 'Share Tech Mono', monospace;
+  margin:0;
+  background: linear-gradient(135deg,#0f46eb,#302b63,#24243e);
+  background-image: url("rrb.jpg");
+  display:flex; justify-content:center; align-items:flex-start; padding: 10px;
+  color:#0ff;
+}
+.wrap { width:100%; max-width:600px; }
+h1 { text-align:center; font-size:2rem; background: linear-gradient(45deg,#00fff7,#00f7ff);
+ background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom:20px; }
+.card { background:#111; border-radius:14px; padding:20px; box-shadow:0 0 20px #0ff; }
+label, select, input, button { width:100%; margin-top:10px; border-radius:10px; font-size:1rem; border:none; padding:12px; }
+select, input { background:#111; color:#0ff; border:1px solid #0ff; }
+button.primary { background: linear-gradient(45deg,#00fff7,#00f7ff); color:#000; font-weight:600; cursor:pointer; }
+button.primary:hover { opacity:0.8; }
+button.muted { background: rgba(0,0,0,0.2); color:#0ff; }
+#chatLog { min-height:300px; max-height:400px; overflow-y:auto; white-space:pre-wrap; background:#111; padding:12px; border-radius:10px; border:1px solid #0ff; font-size:0.95rem; margin-top:10px; }
+#typing { font-style:italic; color:#888; display:none; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌍 Charity Donation Chatbot</h1>
+  <div class="card">
+    <label for="lang">🌍 Language</label>
+    <select id="lang">
+      <option value="en">English</option>
+      <option value="hi">Hindi</option>
+      <option value="ta">Tamil</option>
+    </select>
+
+    <label for="chatMsg">💬 Ask or choose an action</label>
+    <input id="chatMsg" placeholder="Type or speak..." />
+
+    <div style="margin-top:8px;">
+      <button id="sendBtn" class="primary">Send</button>
+      <button id="micBtn" class="muted">🎤 Speak</button>
+      <button id="clearBtn" class="muted">🧹 Clear</button>
+    </div>
+
+    <p id="typing">Bot is typing...</p>
+    <div id="chatLog">✨ Hello! I can help with donations, NGO info, blockchain verification, and support.</div>
+  </div>
+</div>
+
+<script>
+const chatMsg = document.getElementById('chatMsg');
+const sendBtn = document.getElementById('sendBtn');
+const clearBtn = document.getElementById('clearBtn');
+const micBtn = document.getElementById('micBtn');
+const chatLog = document.getElementById('chatLog');
+const langEl = document.getElementById('lang');
+
+let recognition=null, listening=false;
+
+const langMap = {
+  en:{sr:'en-US',tts:'en-US'},
+  hi:{sr:'hi-IN',tts:'hi-IN'},
+  ta:{sr:'ta-IN',tts:'ta-IN'}
+};
+
+// Sample NGOs with Ethereum addresses
+const ngoList = {
+  "A": "0xF557FDf1198E2be8947fCe1F6ab178d7fA18b86f",
+  "B": "0x39BF6cD6912DfE0D8a0F0015Dcfc7fADe690b694",
+  "C": "0xC456ea27affe6d08688F6515b5F872Efb1F7eD96"
+};
+
+function appendLog(sender,text){
+  chatLog.textContent += `\n${sender}: ${text}`;
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function getReply(msg, lang='en'){
+  const responses = {
+    en:{
+      hello:"Hello! I can help with donations, NGO info, blockchain verification, and support.",
+      donate:"To donate, choose an NGO: A, B, C. Then enter the amount in ETH.",
+      ngo:"NGO A: Air Humanitarian Homes\nNGO B: Green Earth Foundation\nNGO C: Helping Hands Trust",
+      blockchain:"All donations are verified on blockchain. You can view your transaction in MetaMask.",
+      help:"Type: donate, NGO info, blockchain, account, support, or ask questions.",
+      human:"I am a bot designed to assist with charity donations and NGO info.",
+      about:"I am a multilingual charity donation assistant bot. I help you donate safely, check NGOs, and verify transactions on blockchain.",
+      types:"You can donate in ETH via MetaMask. Support recurring or one-time donations.",
+      online:"Yes, you can donate online using MetaMask.",
+      whichNGO:"Available NGOs: A, B, C",
+      track:"You can track your donation via transaction ID in MetaMask.",
+      receipt:"You receive a blockchain transaction ID as your receipt.",
+      data:"Your data is safe. MetaMask transactions are encrypted.",
+      blockchainQ:"Blockchain is a secure ledger that records transactions transparently.",
+      blockchainTrans:"Blockchain ensures transparency by making all transactions public and immutable.",
+      txnRecord:"Check your transaction record in your MetaMask wallet.",
+      txnID:"Transaction ID is a unique identifier for your donation.",
+      blockchainSec:"Blockchain uses encryption and decentralization to secure your donation.",
+      volunteer:"Contact the NGO directly to volunteer.",
+      location:"NGO locations vary. Check their official websites.",
+      runBy:"NGOs are managed by their respective boards.",
+      contactNGO:"Contact NGOs via their official emails or websites.",
+      createAcc:"You can create an account on the NGO platform if available.",
+      forgotPass:"Use the 'Forgot password' option on the NGO platform.",
+      verifyKYC:"Complete KYC as per NGO platform instructions.",
+      changeDonation:"Donation amount can be changed before sending in MetaMask.",
+      intelligent:"I am an AI bot capable of understanding your donation queries.",
+      emotions:"I try to understand your emotions but I am not human.",
+      remember:"I don't have memory across sessions.",
+      langTalk:"Yes, I can communicate in multiple languages.",
+      voice:"You can donate using voice commands.",
+      offline:"Offline use is not supported; requires internet and MetaMask.",
+      needHelp:"For assistance, contact support or type 'help'.",
+      connectHuman:"You can contact NGO support for human assistance.",
+      report:"To report issues, contact NGO support."
+    },
+    hi:{
+      hello:"नमस्ते! मैं दान, एनजीओ जानकारी, ब्लॉकचेन सत्यापन और सहायता में मदद कर सकता हूँ।",
+      donate:"दान करने के लिए, एक NGO चुनें: A, B, C और ETH राशि दर्ज करें।",
+      ngo:"NGO A: स्वास्थ्य और शिक्षा\nNGO B: महिला सशक्तिकरण\nNGO C: पर्यावरण देखभाल",
+      blockchain:"सभी दान ब्लॉकचेन पर सत्यापित हैं। आप MetaMask में लेनदेन देख सकते हैं।",
+      help:"टाइप करें: donate, NGO info, blockchain, account, support, या सवाल पूछें।",
+      human:"मैं एक बॉट हूँ जो दान और NGO जानकारी में मदद करता है।",
+      about:"मैं एक बहुभाषी दान सहायक बॉट हूँ। मैं सुरक्षित दान, NGO जांच और ब्लॉकचेन सत्यापन में मदद करता हूँ।",
+      types:"आप ETH के माध्यम से MetaMask में दान कर सकते हैं। एक बार या आवर्ती दान का समर्थन।",
+      online:"हाँ, आप MetaMask के माध्यम से ऑनलाइन दान कर सकते हैं।",
+      whichNGO:"उपलब्ध NGOs: A, B, C",
+      track:"आप अपने MetaMask में Transaction ID के माध्यम से दान ट्रैक कर सकते हैं।",
+      receipt:"आपको एक ब्लॉकचेन Transaction ID मिलेगा।",
+      data:"आपका डेटा सुरक्षित है। MetaMask लेनदेन एन्क्रिप्टेड हैं।",
+      blockchainQ:"ब्लॉकचेन एक सुरक्षित लेजर है जो लेनदेन को पारदर्शी रूप से रिकॉर्ड करता है।",
+      blockchainTrans:"ब्लॉकचेन पारदर्शिता सुनिश्चित करता है क्योंकि सभी लेनदेन सार्वजनिक और अपरिवर्तनीय होते हैं।",
+      txnRecord:"अपने MetaMask वॉलेट में लेनदेन रिकॉर्ड देखें।",
+      txnID:"Transaction ID आपके दान की अद्वितीय पहचान है।",
+      blockchainSec:"ब्लॉकचेन एन्क्रिप्शन और विकेंद्रीकरण का उपयोग करता है।",
+      volunteer:"स्वयंसेवा के लिए सीधे NGO से संपर्क करें।",
+      location:"NGO स्थान भिन्न हैं। आधिकारिक वेबसाइट देखें।",
+      runBy:"NGOs अपने संबंधित बोर्ड द्वारा संचालित होते हैं।",
+      contactNGO:"NGOs को उनके आधिकारिक ईमेल या वेबसाइट से संपर्क करें।",
+      createAcc:"यदि उपलब्ध हो तो NGO प्लेटफॉर्म पर खाता बनाएं।",
+      forgotPass:"NGO प्लेटफॉर्म पर 'Forgot password' विकल्प का उपयोग करें।",
+      verifyKYC:"NGO प्लेटफॉर्म निर्देशों के अनुसार KYC पूरा करें।",
+      changeDonation:"MetaMask में भेजने से पहले दान राशि बदल सकते हैं।",
+      intelligent:"मैं AI बॉट हूँ जो आपके दान प्रश्न समझ सकता है।",
+      emotions:"मैं भावनाओं को समझने की कोशिश करता हूँ लेकिन मैं मानव नहीं हूँ।",
+      remember:"मैं सत्रों के बीच याद नहीं रखता।",
+      langTalk:"हाँ, मैं कई भाषाओं में संवाद कर सकता हूँ।",
+      voice:"आप वॉइस कमांड का उपयोग कर दान कर सकते हैं।",
+      offline:"ऑफ़लाइन उपयोग समर्थित नहीं है; इंटरनेट और MetaMask आवश्यक हैं।",
+      needHelp:"सहायता के लिए समर्थन से संपर्क करें या 'help' टाइप करें।",
+      connectHuman:"मानव सहायता के लिए NGO समर्थन से संपर्क करें।",
+      report:"समस्याओं की रिपोर्ट करने के लिए NGO समर्थन से संपर्क करें।"
+    },
+    ta:{
+      hello:"வணக்கம்! நான் நன்கொடைகள், NGO தகவல்கள், பிளாக்செயின் மற்றும் உதவியில் உதவ முடியும்.",
+      donate:"நன்கொடை செய்ய, ஒரு NGO தேர்ந்தெடுக்கவும்: A, B, C மற்றும் ETH அளவை உள்ளிடவும்.",
+      ngo:"NGO A: உடல்நலம் மற்றும் கல்வி\nNGO B: பெண்கள் அதிகாரம்\nNGO C: சுற்றுச்சூழல் பாதுகாப்பு",
+      blockchain:"அனைத்து நன்கொடைகளும் பிளாக்செயினில் சரிபார்க்கப்பட்டவை. உங்கள் பரிவர்த்தனை MetaMask-ல் பார்க்கலாம்.",
+      help:"வைப்: donate, NGO info, blockchain, account, support, அல்லது கேள்விகள்.",
+      human:"நான் நன்கொடை மற்றும் NGO தகவலில் உதவும் ஒரு பாட்டாக இருக்கிறேன்.",
+      about:"நான் பல மொழிகளை பேசக்கூடிய நன்கொடை உதவியாளர் பாட்டாக இருக்கிறேன். நான் பாதுகாப்பான நன்கொடை, NGO சரிபார்ப்பு மற்றும் பிளாக்செயின் பின்தொடர்வில் உதவுகிறேன்.",
+      types:"நீங்கள் ETH மூலம் MetaMask-ல் நன்கொடை செய்யலாம். ஒருமுறை அல்லது மீண்டும் நடக்கும் நன்கொடைகளை ஆதரிக்கவும்.",
+      online:"ஆம், நீங்கள் MetaMask பயன்படுத்தி ஆன்லைனில் நன்கொடை செய்யலாம்.",
+      whichNGO:"கிடைக்கும் NGOs: A, B, C",
+      track:"நீங்கள் MetaMask-ல் Transaction ID மூலம் நன்கொடையை பின்தொடரலாம்.",
+      receipt:"உங்களுக்கு ஒரு பிளாக்செயின் Transaction ID கிடைக்கும்.",
+      data:"உங்கள் தரவு பாதுகாப்பாக உள்ளது. MetaMask பரிவர்த்தனைகள் குறியாக்கப்படுகின்றன.",
+      blockchainQ:"பிளாக்செயின் என்பது பரிவர்த்தனைகளை வெளிப்படையாக பதிவு செய்யும் ஒரு பாதுகாப்பான லெட்ஜர் ஆகும்.",
+      blockchainTrans:"பிளாக்செயின் அனைத்து பரிவர்த்தனைகளும் பொதுவான மற்றும் மாற்ற முடியாதவையாக இருப்பதால் வெளிப்படையானது.",
+      txnRecord:"உங்கள் MetaMask வாலெட்டில் பரிவர்த்தனை பதிவைப் பார்க்கவும்.",
+      txnID:"Transaction ID உங்கள் நன்கொடைக்கு தனித்துவமான அடையாளம் ஆகும்.",
+      blockchainSec:"பிளாக்செயின் குறியாக்கம் மற்றும் மையமற்ற அமைப்பை பயன்படுத்துகிறது.",
+      volunteer:"சேவை செய்ய நேரடியாக NGO-க்கு தொடர்பு கொள்ளவும்.",
+      location:"NGO இடங்கள் மாறுபடும். அதிகாரப்பூர்வ இணையதளத்தைப் பார்க்கவும்.",
+      runBy:"NGO-கள் தங்களது குழுவினால் நிர்வகிக்கப்படுகின்றன.",
+      contactNGO:"NGO-களை அதிகாரப்பூர்வ மின்னஞ்சல் அல்லது இணையதளத்தில் தொடர்பு கொள்ளவும்.",
+      createAcc:"அனுமதிக்கப்பட்டால் NGO தளத்தில் கணக்கு உருவாக்கலாம்.",
+      forgotPass:"NGO தளத்தில் 'Forgot password' பயன்படுத்தவும்.",
+      verifyKYC:"NGO தளத்தின் வழிமுறைகளின்படி KYC செய்யவும்.",
+      changeDonation:"MetaMask-ல் அனுப்புவதற்கு முன் நன்கொடை அளவை மாற்றலாம்.",
+      intelligent:"நான் உங்கள் நன்கொடை கேள்விகளை புரிந்துகொள்ளக்கூடிய AI பாட்டாக இருக்கிறேன்.",
+      emotions:"நான் உணர்வுகளை புரிந்துகொள்ள முயற்சிக்கிறேன் ஆனால் நான் மனிதன் அல்ல.",
+      remember:"நான் நிகழ்ச்சி இடைவெளிகளுக்கு நினைவில் வைக்க மாட்டேன்.",
+      langTalk:"ஆம், நான் பல மொழிகளில் பேச முடியும்.",
+      voice:"நீங்கள் குரல் கட்டளைகளை பயன்படுத்தி நன்கொடை செய்யலாம்.",
+      offline:"ஆஃப்லைன் பயன்பாடு ஆதரிக்கப்படவில்லை; இணையம் மற்றும் MetaMask தேவையானவை.",
+      needHelp:"உதவிக்கு ஆதரவை தொடர்பு கொள்ளவும் அல்லது 'help' தட்டச்சு செய்யவும்.",
+      connectHuman:"மனித உதவிக்கு NGO ஆதரவுடன் தொடர்பு கொள்ளவும்.",
+      report:"சிக்கல்கள் அறிக்கையிட NGO ஆதரவுடன் தொடர்பு கொள்ளவும்."
+    }
+  };
+
+  const langResponses = responses[lang] || responses.en;
+  const m = msg.toLowerCase();
+
+  if(m.includes("donate")) return langResponses.donate;
+  if(m.includes("ngo")) return langResponses.ngo;
+  if(m.includes("blockchain")) return langResponses.blockchain;
+  if(m.includes("help")) return langResponses.help;
+  if(m.includes("human")) return langResponses.human;
+  if(m.includes("about")) return langResponses.about;
+  if(m.includes("type")) return langResponses.types;
+  if(m.includes("online")) return langResponses.online;
+  if(m.includes("which ngo")) return langResponses.whichNGO;
+  if(m.includes("track")) return langResponses.track;
+  if(m.includes("receipt")) return langResponses.receipt;
+  if(m.includes("data")) return langResponses.data;
+  if(m.includes("blockchain?")) return langResponses.blockchainQ;
+  if(m.includes("ensure transparency")) return langResponses.blockchainTrans;
+  if(m.includes("transaction record")) return langResponses.txnRecord;
+  if(m.includes("transaction id")) return langResponses.txnID;
+  if(m.includes("secure")) return langResponses.blockchainSec;
+  if(m.includes("volunteer")) return langResponses.volunteer;
+  if(m.includes("location")) return langResponses.location;
+  if(m.includes("run")) return langResponses.runBy;
+  if(m.includes("contact ngo")) return langResponses.contactNGO;
+  if(m.includes("create account")) return langResponses.createAcc;
+  if(m.includes("forgot password")) return langResponses.forgotPass;
+  if(m.includes("verify kyc")) return langResponses.verifyKYC;
+  if(m.includes("change donation")) return langResponses.changeDonation;
+  if(m.includes("intelligent")) return langResponses.intelligent;
+  if(m.includes("emotions")) return langResponses.emotions;
+  if(m.includes("remember")) return langResponses.remember;
+  if(m.includes("talk in")) return langResponses.langTalk;
+  if(m.includes("voice command")) return langResponses.voice;
+  if(m.includes("offline")) return langResponses.offline;
+  if(m.includes("need help")) return langResponses.needHelp;
+  if(m.includes("connect human")) return langResponses.connectHuman;
+  if(m.includes("report")) return langResponses.report;
+  if(m.includes("hello")||m.includes("hi")) return langResponses.hello;
+  return langResponses.default;
+}
+
+// --- MetaMask Donation ---
+async function donateMetaMask(amountEth,toAddress){
+  if(!window.ethereum){ appendLog("Bot","MetaMask not installed!"); return; }
+  try{
+    const accounts = await ethereum.request({ method:'eth_requestAccounts' });
+    const tx = await ethereum.request({
+      method:'eth_sendTransaction',
+      params:[{from:accounts[0],to:toAddress,value:(amountEth*1e18).toString(16)}]
+    });
+    appendLog("Bot",`Donation successful! Transaction ID: ${tx}`);
+  }catch(e){
+    appendLog("Bot","Transaction failed: "+e.message);
+  }
+}
+
+// --- Send Message ---
+async function sendMessage(){
+  const msg = chatMsg.value.trim();
+  if(!msg) return;
+  appendLog("You",msg);
+  chatMsg.value = '';
+  
+  const reply = getReply(msg, langEl.value);
+  appendLog("Bot",reply);
+
+  if(msg.toLowerCase().includes("donate")){
+    let ngo = prompt("Enter NGO to donate (A/B/C):").toUpperCase();
+    if(!ngoList[ngo]){ appendLog("Bot","Invalid NGO"); return; }
+    let amount = parseFloat(prompt(`Enter amount in ETH to donate to NGO ${ngo}:`));
+    if(isNaN(amount)){ appendLog("Bot","Invalid amount"); return; }
+    appendLog("Bot",`Opening MetaMask to donate ${amount} ETH to NGO ${ngo}...`);
+    await donateMetaMask(amount, ngoList[ngo]);
+  }
+
+  speakText(reply, langEl.value);
+}
+
+function setupRecognition(){
+  const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ micBtn.disabled=true; return; }
+  recognition = new SR();
+  recognition.interimResults=false;
+  recognition.onresult = e => {
+    chatMsg.value = Array.from(e.results).map(r=>r[0].transcript).join(" ");
+    sendMessage();
+  };
+  recognition.onend = () => { listening=false; micBtn.textContent="🎤 Speak"; }
+}
+setupRecognition();
+micBtn.addEventListener('click',()=>{
+  if(!recognition) return;
+  if(!listening){
+    recognition.lang = langMap[langEl.value]?.sr || 'en-US';
+    recognition.start();
+    listening=true; micBtn.textContent="⏹ Stop";
+  } else {
+    recognition.stop();
+    listening=false; micBtn.textContent="🎤 Speak";
+  }
+});
+
+// --- Speech Synthesis ---
+function speakText(text,uiLang){
+  if(!('speechSynthesis' in window)) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = langMap[uiLang]?.tts || 'en-US';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
+
+sendBtn.addEventListener('click', sendMessage);
+chatMsg.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
+clearBtn.addEventListener('click',()=>{ chatLog.textContent="✨ Hello! I can help with donations, NGO info, blockchain verification, and support."; });
+</script>
+</body>
+  </html>
